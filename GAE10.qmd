@@ -1,11 +1,12 @@
 ---
 title: "GAE10: PCA & NMDS"
-author: "Your Name Here"
+author: "Hannah Alexander"
 format: 
   html:
     theme: custom.scss
     embed-resources: true
     code-tools: true
+    warning: FALSE
 
 csl: ecology.csl
 editor: visual
@@ -21,10 +22,16 @@ knitr::opts_chunk$set(
   echo = FALSE
   )
 
+
+library(vegan) 
+library(ggrepel) 
+library(FactoMineR)
+library(factoextra) 
 library(latex2exp)
 library(patchwork)
 library(kableExtra)
 library(tidyverse)
+library(broom)
 
 options(scipen = 10)
 
@@ -48,9 +55,14 @@ The researchers used study skins of 117 species of Coraciiformes (families Merop
 
 knitr::include_graphics("Kingfishers.png")
 
+
 ```
 
 #### Statistical Methods:
+
+I used principle components analysis to examine the patterns of coloration. All analyses were conducted in R [@base] using the tidyverse, kableExtra, FactoMineR, and factoextra packages [@tidyverse; @kableExtra; @FactoMineR; @factoextra]
+
+### Results
 
 ```{r}
 #| label: Scenario1DataImport
@@ -62,9 +74,39 @@ knitr::include_graphics("Kingfishers.png")
 # colors.csv. Please explore any grouping and/or patterning among the species
 # and their ecological/behavioral traits.
 
+df1 <- read_csv("colors.csv", show_col_types = FALSE)
 ```
 
-### References:
+```{r, fig.height = 16, fig.width = 10}
+#| label: fig-df1biplot
+#| fig-cap: "Variable and individual PCA's of color differences among birds based on their hunting strategies."
+
+df1PCA <- PCA(
+  df1, 
+  quanti.sup = 13,
+  quali.sup = c(1, 14:17),
+  graph = FALSE
+)
+
+indfig <- fviz_pca_ind(
+  df1PCA,
+  repel = TRUE,
+  label = "none",
+  habillage = 
+    "Hunting_strategy"
+)
+varfig <- fviz_pca_var(
+  df1PCA,
+  repel = TRUE,
+  label = "var",
+)
+varfig + 
+  indfig + 
+  plot_layout(ncol = 1)
+```
+
+Wing coverts, tail, rump, wing primaries, secondaries are mostly blue and more correlated with principle component 1 than principle component 2. Principle component 1 represents how blue the bird is. Belly, breast, and throat (underside) are mostly red/green and more correlated w principle component 2 than principle component 1. Principle component 2 represents how red/green the bird is. Hunting strategy showed the greatest separation along the principle components. The centroid for aerial catchers is on the upper left of the individuals graph and it seems to be clustered - aerial catchers could be less blue. This could be because spending time in the forest taking insects out of the air makes being blue harder either because of hunting failure or increased risk of predation. Water divers are below the 0 for principle component 2 - don't have a lot of red/green and are more blue. Ground dwellers have less markings on their undersides that are very obvious, but there's really not much you can say about this PCA because all of the 95% confidence ellipses overlap so much (not pictured). Forest birds are less blue and more red/green (probably green). There are no huge differences found between birds' colors based on their hunting strategies, however one could derive come hypotheses from this information, such as the ones listed above.
+
 
 ------------------------------------------------------------------------
 
@@ -78,6 +120,8 @@ In Summer 2011, the researchers visited 17 deer exclosures in upland forests of 
 
 #### Statistical Methods:
 
+I used the metaMDS() function from the vegan package to use non-metric multidimensional scaling to explore the differences in plant communities inside and outside deer exclosures [@vegan]. I used the adonis2() function from the from the vegan package to run a PERMANOVA on the data to statistically test for differences in the communities in the two location types [@vegan].
+
 ```{r}
 #| label: Scenario2DataImport
 
@@ -88,6 +132,49 @@ In Summer 2011, the researchers visited 17 deer exclosures in upland forests of 
 # Use NMDS to explore the differences in plant community inside and outside the
 # deer exclosures, then test for differences in the plant communities between
 # the deer exclosures and the adjacent forests.
+df2 <- read_csv("Sabo_etal_data.csv", show_col_types = FALSE)
 ```
+
+### Results
+
+```{r}
+#| label: scen2nMDS
+#| results: "hide"
+
+deermds <- metaMDS(
+  df2[,-c(1:2)],
+  k=4
+)
+
+deermds$stress
+#Want stress to be below o.1, can lower the stress by increasing k
+```
+
+```{r}
+#| label: tbl-scen2PERMANOVA
+#| tbl-cap: "PERMANOVA to test for a difference in plant assemblages between deer exclusion areas and adjacent areas"
+
+scen2PERMANOVA <- adonis2(
+  df2[,-c(1,2)] ~ Treatment, 
+  data = df2,
+  by = "margin",
+  permutations = 10001
+)
+kbl(
+  scen2PERMANOVA,
+  format = "markdown",
+  digits = c(0,3,3,3,3),
+  col.names = c(
+    "df",
+    "SS",
+    "$R^2$",
+    "F",
+    "P"
+  )
+)  
+
+```
+
+We did a nMDS and needed 4 dimensions for stress to be below 0.1. We found that there was almost a complete overlap between the two communities - no difference between exclosures and controls so we fail to reject the null hypothesis that the communities are the same.
 
 ### References:
